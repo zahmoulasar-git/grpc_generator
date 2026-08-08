@@ -23,5 +23,8 @@ jobs:
       - name: Compiler le projet
         run: cargo build --verbose
 
-      - name: Lancer les tests
+      - name: Lancer les tests unitaires
         run: cargo test --verbose
+
+      - name: Test d'integration - pipeline complet (generation, build, test, packaging)
+        run: cargo run -- examples/user.proto
