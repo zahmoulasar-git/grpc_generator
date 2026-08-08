@@ -1,0 +1,19 @@
+# Build artifacts
+/target
+*.generated_lib/
+tonic_test/
+
+# Fichiers generes par les tests manuels (JSON, proto de test)
+*.proto.json
+duplicate*.proto
+full_test.proto
+client_test.proto
+invalid.proto
+valid_full.proto
+test.proto
+test.txt
+
+# Certificats de test (ne jamais commiter de vraies cles privees)
+certs/
+*.key
+*.crt

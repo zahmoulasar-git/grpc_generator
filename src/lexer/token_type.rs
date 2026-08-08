@@ -1,0 +1,21 @@
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenType {
+    Keyword,
+    Identifier,
+    Number,
+    StringLiteral,
+    LeftBrace,
+    RightBrace,
+    LeftParen,
+    RightParen,
+    LeftBracket,
+    RightBracket,
+    LessThan,
+    GreaterThan,
+    Semicolon,
+    Equal,
+    Comma,
+    Dot,
+    EndOfFile,
+    Invalid,
+}
