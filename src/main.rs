@@ -19,9 +19,7 @@
 //
 // Le Lexer/Parser fait main N'EST PAS utilise pour produire le code gRPC
 // final ; il sert a l'analyse, la validation, et la generation des structs
-// de donnees (messages) uniquement. Cette separation est documentee ici
-// suite a une revue de code (ISS-03) plutot que supprimee, afin de
-// conserver la demarche d'apprentissage des premiers sprints du stage.
+// de donnees (messages) uniquement.
 // ============================================================================
 mod lexer;
 mod parser;
@@ -31,24 +29,49 @@ mod error;
 use lexer::lexer::Lexer;
 use lexer::token_type::TokenType;
 use parser::parser::Parser;
+use parser::ast::ProtoFile;
 use error::GeneratorError;
-use std::env;
+use clap::{Parser as ClapParser, Subcommand};
 use std::fs;
 use std::path::Path;
 use std::process;
 
-// ISS-04 : point d'entree unique. Toute la logique vit dans run(), qui retourne
-// un Result<(), GeneratorError>. main() ne fait plus qu'une seule chose :
-// afficher l'erreur si besoin, et gerer le code de sortie a UN SEUL endroit.
+// ISS-05 : sous-commandes CLI (remplace l'unique "cargo run -- fichier.proto").
+#[derive(ClapParser)]
+#[command(name = "grpc_generator", about = "Generateur statique de code gRPC a partir de fichiers .proto")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Pipeline complet : parse, valide, genere le code, compile, teste, empaquette.
+    Generate {
+        /// Chemin du fichier .proto d'entree
+        input: String,
+    },
+    /// Verification rapide : parse et valide uniquement, sans rien generer ni compiler.
+    Lint {
+        /// Chemin du fichier .proto a verifier
+        path: String,
+    },
+}
+
 fn main() {
-    if let Err(e) = run() {
+    let cli = Cli::parse();
+
+    let result = match cli.command {
+        Commands::Generate { input } => generate_from_proto(&input),
+        Commands::Lint { path } => lint_proto_file(&path).map(|_| ()),
+    };
+
+    if let Err(e) = result {
         eprintln!("{}", e);
         process::exit(1);
     }
 }
 
-// Ecrit un fichier et convertit toute erreur d'IO en GeneratorError::Io,
-// avec un contexte lisible (evite de repeter ce pattern partout).
 fn write_file(path: &str, content: &str, context: &str) -> Result<(), GeneratorError> {
     fs::write(path, content).map_err(|source| GeneratorError::Io {
         context: format!("{} ({})", context, path),
@@ -56,9 +79,6 @@ fn write_file(path: &str, content: &str, context: &str) -> Result<(), GeneratorE
     })
 }
 
-// Lance une sous-commande cargo (build/test/package) dans un dossier donne.
-// Convertit un echec de lancement en GeneratorError::Io, et un code de sortie
-// non nul en GeneratorError::Generation avec le detail (stderr ou stdout).
 fn run_cargo_step(step_name: &str, args: &[&str], dir: &str, use_stdout: bool) -> Result<(), GeneratorError> {
     let output = process::Command::new("cargo")
         .args(args)
@@ -84,17 +104,9 @@ fn run_cargo_step(step_name: &str, args: &[&str], dir: &str, use_stdout: bool) -
     }
 }
 
-fn run() -> Result<(), GeneratorError> {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
-        return Err(GeneratorError::Usage(format!(
-            "aucun fichier fourni.\nUsage: {} <fichier.proto>",
-            args.get(0).map(String::as_str).unwrap_or("grpc_generator")
-        )));
-    }
-
-    let file_path = &args[1];
+// Etape commune aux deux sous-commandes : lecture, tokenisation, parsing, validation.
+// Retourne l'AST valide si tout est correct.
+fn parse_and_validate(file_path: &str) -> Result<ProtoFile, GeneratorError> {
     let path = Path::new(file_path);
 
     if !path.exists() {
@@ -159,6 +171,20 @@ fn run() -> Result<(), GeneratorError> {
         });
     }
 
+    Ok(proto_file)
+}
+
+// ISS-05 : sous-commande "lint" -- rapide, ne genere et ne compile rien.
+fn lint_proto_file(file_path: &str) -> Result<ProtoFile, GeneratorError> {
+    let proto_file = parse_and_validate(file_path)?;
+    println!("\nLint reussi : le fichier est valide (aucun code genere).");
+    Ok(proto_file)
+}
+
+// ISS-05 : sous-commande "generate" -- pipeline complet (identique a l'ancien comportement).
+fn generate_from_proto(file_path: &str) -> Result<(), GeneratorError> {
+    let proto_file = parse_and_validate(file_path)?;
+
     let json_output = proto_file.to_json();
     let json_path = format!("{}.json", file_path);
     write_file(&json_path, &json_output, "export JSON")?;
@@ -173,8 +199,6 @@ fn run() -> Result<(), GeneratorError> {
         generated_code.push('\n');
     }
 
-    // ISS-02 : les traits Client/Server sont a titre de documentation uniquement,
-    // ils ne sont plus ecrits dans generated.rs (voir note plus haut).
     println!("\nInterfaces de communication (documentation uniquement, non compilees) :");
     for service in &proto_file.services {
         let interface_code = codegen::rust_gen::generate_service_interface(service);

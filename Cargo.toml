@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 thiserror = "1"
+clap = { version = "4", features = ["derive"] }
 prost = "0.14"
 tonic = "0.14"
 serde = { version = "1", features = ["derive"] }
