@@ -1,3 +1,5 @@
+// NOTE (ISS-03) : Parser ecrit a la main, exercice pedagogique du Sprint 2.
+// N'est PAS utilise pour produire le code gRPC final (voir note dans main.rs).
 use crate::lexer::token::Token;
 use crate::lexer::token_type::TokenType;
 use crate::parser::ast::{Field, Message, Enum, EnumValue, RpcMethod, Service, ProtoFile};

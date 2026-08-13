@@ -1,3 +1,5 @@
+// NOTE (ISS-03) : Lexer ecrit a la main, exercice pedagogique du Sprint 1.
+// N'est PAS utilise pour produire le code gRPC final (voir note dans main.rs).
 use crate::lexer::token::Token;
 use crate::lexer::token_type::TokenType;
 

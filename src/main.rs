@@ -1,3 +1,28 @@
+// ============================================================================
+// NOTE ARCHITECTURALE (ISS-03) :
+//
+// Ce projet contient DEUX chaines de lecture d'un fichier .proto :
+//
+// 1. lexer/ + parser/ (ci-dessous) : Lexer et Parser ecrits a la main,
+//    developpes durant les Sprints 1-2 du stage. Ils tokenisent le fichier,
+//    construisent l'AST (ProtoFile), l'affichent, le valident, et generent
+//    les structs Rust (serde) ainsi que le .proto standard consomme ensuite
+//    par le pipeline Tonic. C'est un EXERCICE PEDAGOGIQUE d'apprentissage
+//    de Rust et de conception de compilateur (Lexer -> Parser -> AST).
+//
+// 2. Le pipeline reellement utilise pour la communication gRPC (build.rs
+//    genere + tonic-prost-build + protoc, voir codegen::rust_gen::
+//    generate_build_rs) est INDEPENDANT du Lexer/Parser ci-dessus : il
+//    reparse le fichier .proto genere par nos soins via l'outil officiel
+//    protoc. C'est ce chemin qui alimente les tests reseau reels
+//    (tests/grpc_integration.rs, tests/grpc_tls_integration.rs).
+//
+// Le Lexer/Parser fait main N'EST PAS utilise pour produire le code gRPC
+// final ; il sert a l'analyse, la validation, et la generation des structs
+// de donnees (messages) uniquement. Cette separation est documentee ici
+// suite a une revue de code (ISS-03) plutot que supprimee, afin de
+// conserver la demarche d'apprentissage des premiers sprints du stage.
+// ============================================================================
 mod lexer;
 mod parser;
 mod codegen;
@@ -97,12 +122,14 @@ fn main() {
                 generated_code.push('\n');
             }
 
-            println!("\nInterfaces de communication generees pour chaque service :");
+            // ISS-02 : les traits Client/Server (generate_service_interface) sont a titre
+            // de documentation uniquement. Ils ne sont plus ecrits dans generated.rs car
+            // le pipeline reellement utilise par la crate compilee est celui de Tonic
+            // (build.rs + tonic-prost-build), pas ces traits synchrones.
+            println!("\nInterfaces de communication (documentation uniquement, non compilees) :");
             for service in &proto_file.services {
                 let interface_code = codegen::rust_gen::generate_service_interface(service);
                 println!("{}", interface_code);
-                generated_code.push_str(&interface_code);
-                generated_code.push('\n');
             }
 
             let tests_code = codegen::rust_gen::generate_tests_module(&proto_file.messages);
